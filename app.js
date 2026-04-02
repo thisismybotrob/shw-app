@@ -394,6 +394,19 @@ function buildUnitHTML(n) {
         <label class="form-label">BEG Measurements</label>
         <input type="text" class="form-input unit-beg" placeholder="e.g. 11 7/8, 23 1/4, 34 3/4">
       </div>
+    </div>
+    <div class="form-group" style="margin-top:.75rem;">
+      <label class="form-label">Unit Notes</label>
+      <input type="text" class="form-input unit-notes" placeholder="e.g. interior door glass, customer prefers tempered">
+    </div>
+    <div class="form-group" style="margin-top:.5rem;">
+      <label class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:.35rem;cursor:pointer;">
+        📷 Add Photo
+        <input type="file" accept="image/*" capture="environment" class="unit-photo" style="display:none;" onchange="handlePhotoSelect(this, ${n})">
+      </label>
+      <div class="unit-photo-preview" id="photoPreview-${n}" style="margin-top:.5rem;display:none;">
+        <img style="max-width:120px;max-height:120px;border-radius:8px;border:1px solid var(--gray-300);">
+      </div>
     </div>`;
 }
 
@@ -429,6 +442,20 @@ function renumberUnits() {
   });
 }
 
+function handlePhotoSelect(input, n) {
+  const preview = document.getElementById(`photoPreview-${n}`);
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      preview.style.display = 'block';
+      preview.querySelector('img').src = e.target.result;
+    };
+    reader.readAsDataURL(input.files[0]);
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
 function gatherUnits() {
   const cards = document.querySelectorAll('.unit-card');
   return Array.from(cards).map((c, i) => {
@@ -437,6 +464,8 @@ function gatherUnits() {
       return el ? (el.value || '') : '';
     };
     const hasGrid = c.querySelector('.unit-grid-toggle')?.checked || false;
+    const photoInput = c.querySelector('.unit-photo');
+    const hasPhoto = photoInput && photoInput.files && photoInput.files.length > 0;
     return {
       num: i + 1,
       label: g('unit-label'),
@@ -453,6 +482,8 @@ function gatherUnits() {
       gridProfile: hasGrid ? g('unit-grid-profile') : '',
       gridPattern: hasGrid ? g('unit-grid-pattern') : '',
       beg: hasGrid ? g('unit-beg') : '',
+      notes: g('unit-notes'),
+      hasPhoto,
     };
   });
 }
@@ -463,7 +494,7 @@ function buildOrderText() {
   const units = gatherUnits();
   const totalQty = units.reduce((s, u) => s + parseInt(u.qty || 1), 0);
 
-  let text = `NW Glass,\n\nWe need ${totalQty} glass unit(s) please.\n\nPO- ${po}\n`;
+  let text = `NW Glass,\n\nWe need a quote for ${totalQty} unit(s) please.\n\nPO- ${po}\n`;
 
   units.forEach(u => {
     const labelStr = u.label ? ` — ${u.label}` : '';
@@ -480,11 +511,12 @@ function buildOrderText() {
     } else {
       text += `No grids\n`;
     }
+    if (u.notes) text += `Notes: ${u.notes}\n`;
   });
 
   if (notes) text += `\n${notes}\n`;
 
-  text += `\nPlease charge the card on file and send me the delivery date.\n\nCheers!\nSergei Fedorov\n206-353-0627 cell/text\nSeattleHomeWindows.com`;
+  text += `\nLet me know if you have any questions. Thank you.\n\nCheers!\nSergei Fedorov\n206-353-0627 cell/text\nSeattleHomeWindows.com`;
 
   return text;
 }
@@ -496,7 +528,13 @@ function previewOrder() {
     return;
   }
   const text = buildOrderText();
-  document.getElementById('previewText').textContent = text;
+  const units = gatherUnits();
+  const photoCount = units.filter(u => u.hasPhoto).length;
+  let displayText = text;
+  if (photoCount > 0) {
+    displayText += `\n📎 ${photoCount} photo(s) attached — send separately if needed`;
+  }
+  document.getElementById('previewText').textContent = displayText;
   document.getElementById('previewModal').classList.add('show');
 }
 
@@ -524,7 +562,7 @@ function sendOrder() {
   const po = document.getElementById('poNumber')?.value || '';
   const customerName = document.getElementById('customerName')?.value || '';
   const text = buildOrderText();
-  const subject = encodeURIComponent(`Glass Order — ${customerName} — PO ${po}`);
+  const subject = encodeURIComponent(`Need a quote for SHW: PO- ${po}`);
   const body = encodeURIComponent(text);
   window.location.href = `mailto:orders@nwglassmfg.com?subject=${subject}&body=${body}`;
 
@@ -552,7 +590,7 @@ async function saveToGHL() {
     await ghlFetch(`/contacts/${selectedContact.id}/notes`, {
       method: 'POST',
       body: JSON.stringify({
-        body: `Glass Order Placed:\n${buildOrderText()}`,
+        body: `Quote Requested:\n${buildOrderText()}`,
         userId: selectedContact.id
       })
     });
