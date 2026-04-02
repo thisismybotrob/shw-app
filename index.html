@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1c3a5e">
+  <title>Seattle Home Windows</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-logo">🏠 Seattle Home Windows</div>
+    <div class="login-sub">Glass Order Management</div>
+    <div class="pin-input-group">
+      <input type="tel" class="pin-digit" maxlength="1" data-pin="0" inputmode="numeric" autofocus>
+      <input type="tel" class="pin-digit" maxlength="1" data-pin="1" inputmode="numeric">
+      <input type="tel" class="pin-digit" maxlength="1" data-pin="2" inputmode="numeric">
+      <input type="tel" class="pin-digit" maxlength="1" data-pin="3" inputmode="numeric">
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <button class="login-btn" id="loginBtn">Unlock</button>
+  </div>
+
+  <script>
+    // Redirect to jobs page (main landing)
+    if (localStorage.getItem('shw_auth') === 'true') {
+      window.location.href = 'jobs.html';
+    }
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
