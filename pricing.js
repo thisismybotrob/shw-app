@@ -23,33 +23,35 @@ const PRICING = {
 };
 
 const FRACTIONS = [
-  { label: '0',     value: 0 },
-  { label: '1/16',  value: 1/16 },
-  { label: '1/8',   value: 1/8 },
-  { label: '3/16',  value: 3/16 },
-  { label: '1/4',   value: 1/4 },
-  { label: '5/16',  value: 5/16 },
-  { label: '3/8',   value: 3/8 },
-  { label: '7/16',  value: 7/16 },
-  { label: '1/2',   value: 1/2 },
-  { label: '9/16',  value: 9/16 },
-  { label: '5/8',   value: 5/8 },
-  { label: '11/16', value: 11/16 },
-  { label: '3/4',   value: 3/4 },
-  { label: '13/16', value: 13/16 },
-  { label: '7/8',   value: 7/8 },
-  { label: '15/16', value: 15/16 },
+  { label: '0',     value: '0' },
+  { label: '1/16',  value: '0.0625' },
+  { label: '1/8',   value: '0.125' },
+  { label: '3/16',  value: '0.1875' },
+  { label: '1/4',   value: '0.25' },
+  { label: '5/16',  value: '0.3125' },
+  { label: '3/8',   value: '0.375' },
+  { label: '7/16',  value: '0.4375' },
+  { label: '1/2',   value: '0.5' },
+  { label: '9/16',  value: '0.5625' },
+  { label: '5/8',   value: '0.625' },
+  { label: '11/16', value: '0.6875' },
+  { label: '3/4',   value: '0.75' },
+  { label: '13/16', value: '0.8125' },
+  { label: '7/8',   value: '0.875' },
+  { label: '15/16', value: '0.9375' },
 ];
 
 function calcRawDims(widthWhole, widthFrac, heightWhole, heightFrac) {
-  const w = (parseInt(widthWhole) || 0) + (parseFloat(widthFrac) || 0);
-  const h = (parseInt(heightWhole) || 0) + (parseFloat(heightFrac) || 0);
+  const w = (Number(widthWhole) || 0) + (Number(widthFrac) || 0);
+  const h = (Number(heightWhole) || 0) + (Number(heightFrac) || 0);
   return { w, h };
 }
 
 function calcOverallDims(widthWhole, widthFrac, heightWhole, heightFrac) {
   const { w, h } = calcRawDims(widthWhole, widthFrac, heightWhole, heightFrac);
-  return { width: w > 0 ? Math.ceil(w) : 0, height: h > 0 ? Math.ceil(h) : 0 };
+  const result = { width: w > 0 ? Math.ceil(w) : 0, height: h > 0 ? Math.ceil(h) : 0 };
+  console.log('calcOverallDims →', { w, h, result });
+  return result;
 }
 
 function calcSF(widthWhole, widthFrac, heightWhole, heightFrac) {
