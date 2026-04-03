@@ -217,6 +217,7 @@
             <span class="unit-price" id="price-${u.id}">$0.00</span>
             <button class="delete-unit" onclick="removeUnit(${u.id})">🗑</button>
           </div>
+          <div class="oa-display" id="oa-${u.id}" style="background:var(--blue-gray);border-radius:8px;padding:8px 12px;margin-bottom:12px;text-align:center;font-weight:700;font-size:15px;color:var(--accent);display:none;">O/A: —</div>
 
           <div class="form-group">
             <label class="form-label">Location</label>
@@ -342,6 +343,19 @@
       const calc = calcUnitPrice(data);
       const priceEl = document.getElementById('price-' + id);
       if (priceEl) priceEl.textContent = formatCurrency(calc.lineTotal);
+
+      // Update O/A display
+      const oaEl = document.getElementById('oa-' + id);
+      if (oaEl) {
+        const oa = calcOverallDims(data.widthWhole, data.widthFrac, data.heightWhole, data.heightFrac);
+        if (oa.width > 0 && oa.height > 0) {
+          oaEl.textContent = `O/A: ${oa.width}" × ${oa.height}"`;
+          oaEl.style.display = 'block';
+        } else {
+          oaEl.style.display = 'none';
+        }
+      }
+
       updateSummary();
     }
 

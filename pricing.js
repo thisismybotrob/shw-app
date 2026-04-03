@@ -34,10 +34,20 @@ const FRACTIONS = [
   { label: '7/8', value: 7/8 },
 ];
 
-function calcSF(widthWhole, widthFrac, heightWhole, heightFrac) {
+function calcRawDims(widthWhole, widthFrac, heightWhole, heightFrac) {
   const w = (parseInt(widthWhole) || 0) + (parseFloat(widthFrac) || 0);
   const h = (parseInt(heightWhole) || 0) + (parseFloat(heightFrac) || 0);
-  return (w * h) / 144;
+  return { w, h };
+}
+
+function calcOverallDims(widthWhole, widthFrac, heightWhole, heightFrac) {
+  const { w, h } = calcRawDims(widthWhole, widthFrac, heightWhole, heightFrac);
+  return { width: w > 0 ? Math.ceil(w) : 0, height: h > 0 ? Math.ceil(h) : 0 };
+}
+
+function calcSF(widthWhole, widthFrac, heightWhole, heightFrac) {
+  const oa = calcOverallDims(widthWhole, widthFrac, heightWhole, heightFrac);
+  return (oa.width * oa.height) / 144;
 }
 
 function calcUnitPrice(unit) {
