@@ -2,69 +2,127 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#1c3a5e">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Work Orders — SHW</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <meta name="theme-color" content="#1c3a5e">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Login guard -->
-  <div class="login-screen" id="loginScreen">
-    <div class="login-logo">🏠 Seattle Home Windows</div>
-    <div class="login-sub">Glass Order Management</div>
-    <div class="pin-input-group">
-      <input type="tel" class="pin-digit" maxlength="1" data-pin="0" inputmode="numeric" autofocus>
-      <input type="tel" class="pin-digit" maxlength="1" data-pin="1" inputmode="numeric">
-      <input type="tel" class="pin-digit" maxlength="1" data-pin="2" inputmode="numeric">
-      <input type="tel" class="pin-digit" maxlength="1" data-pin="3" inputmode="numeric">
-    </div>
-    <div class="login-error" id="loginError"></div>
-    <button class="login-btn" id="loginBtn">Unlock</button>
+  <div class="app-header">
+    <h1>🔧 Work Orders</h1>
   </div>
 
-  <!-- Header -->
-  <header class="app-header">
-    <div class="header-brand">🏠 Seattle Home Windows</div>
-    <div class="header-title">Work Orders</div>
-  </header>
-
-  <!-- Work Order list -->
-  <div class="content" id="woList">
-    <div class="loading-state" id="loadingState">
-      <div class="loading-spinner"></div>
-      <div class="loading-text">Loading work orders...</div>
-    </div>
+  <div class="container">
+    <div id="woList"><div class="loading">Loading work orders...</div></div>
   </div>
 
-  <!-- Bottom Nav -->
   <nav class="bottom-nav">
     <a href="jobs.html" class="nav-item">
-      <span class="nav-icon">📋</span>
-      Jobs
+      <span class="nav-icon">📋</span>Jobs
     </a>
-    <a href="new-order.html" class="nav-item">
-      <span class="nav-icon">➕</span>
-      New Order
+    <a href="new-quote.html" class="nav-item">
+      <span class="nav-icon">📝</span>Quote
     </a>
     <a href="work-order.html" class="nav-item active">
-      <span class="nav-icon">🔧</span>
-      Work Orders
+      <span class="nav-icon">🔧</span>Work Orders
     </a>
   </nav>
 
-  <div class="toast" id="toast"></div>
+  <script src="pricing.js"></script>
+  <script src="ghl.js"></script>
   <script src="app.js"></script>
   <script>
-    if (localStorage.getItem('shw_auth') === 'true') {
-      document.getElementById('loginScreen').classList.add('hidden');
-      initWorkOrders();
+    if (!checkAuth()) throw 'no auth';
+
+    // Check if loading a specific job
+    const singleId = new URLSearchParams(location.search).get('id');
+
+    async function loadWorkOrders() {
+      const list = document.getElementById('woList');
+
+      try {
+        const pipeline = await GHL.ensurePipeline();
+        if (!pipeline) { list.innerHTML = '<div class="empty-state"><h3>No pipeline found</h3></div>'; return; }
+
+        let opps = [];
+
+        if (singleId) {
+          // Load single job as work order
+          const result = await GHL.getOpportunity(singleId);
+          const opp = result.opportunity || result;
+          opps = [opp];
+        } else {
+          // Find "Job Scheduled" stage
+          const scheduledStage = pipeline.stages.find(s => /job.*schedul/i.test(s.name));
+          if (!scheduledStage) {
+            // Show all active jobs
+            opps = await GHL.getOpportunities(pipeline.id);
+            opps = opps.filter(o => o.status === 'open');
+          } else {
+            opps = await GHL.getOpportunities(pipeline.id);
+            opps = opps.filter(o => o.pipelineStageId === scheduledStage.id);
+          }
+        }
+
+        if (!opps.length) {
+          list.innerHTML = '<div class="empty-state"><div class="icon">🔧</div><h3>No work orders</h3><p>Jobs in "Job Scheduled" stage appear here</p></div>';
+          return;
+        }
+
+        // Find "Job Complete" stage
+        const completeStage = pipeline.stages.find(s => /job.*complete/i.test(s.name) || /complete/i.test(s.name));
+
+        list.innerHTML = opps.map(opp => {
+          const quoteData = loadQuoteData('quote_' + opp.id);
+          const customer = quoteData ? quoteData.customer : {};
+          const addr = customer.address || '';
+          const mapsUrl = addr ? `https://maps.apple.com/?q=${encodeURIComponent(addr)}` : '#';
+
+          let specsHtml = '';
+          if (quoteData && quoteData.units) {
+            const totals = calcQuoteTotal(quoteData.units);
+            specsHtml = totals.lines.map((l, i) => `
+              <div style="padding:6px 0;border-bottom:1px solid var(--blue-gray);font-size:13px;">
+                <strong>${l.location || 'Unit ' + (i+1)}</strong>:
+                ${formatDimension(l.widthWhole, l.widthFrac)} × ${formatDimension(l.heightWhole, l.heightFrac)}
+                — ${l.glassType}, ${l.frameType}
+                ${l.hasGrids ? '+ Grids' : ''} ${l.needsTemplate ? '+ Template' : ''}
+                (×${l.qty})
+              </div>
+            `).join('');
+          }
+
+          const notes = (quoteData && quoteData.notes) || '';
+
+          return `
+            <div class="wo-card">
+              <div class="wo-customer">${opp.name || 'Unknown'}</div>
+              <a href="${mapsUrl}" class="wo-address" target="_blank">📍 ${addr || 'No address'}</a>
+              <div class="wo-specs">${specsHtml}</div>
+              ${notes ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">📝 ${notes}</div>` : ''}
+              ${completeStage ? `<button class="btn btn-success btn-sm" onclick="markComplete('${opp.id}','${completeStage.id}')">✓ Mark Complete</button>` : ''}
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        console.error(e);
+        list.innerHTML = `<div class="empty-state"><div class="icon">⚠️</div><h3>Error</h3><p>${e.message}</p></div>`;
+      }
     }
+
+    async function markComplete(oppId, stageId) {
+      showToast('Updating...');
+      try {
+        await GHL.updateOpportunity(oppId, { pipelineStageId: stageId });
+        showToast('Marked Complete ✓');
+        setTimeout(() => loadWorkOrders(), 1000);
+      } catch (e) {
+        showToast('Error: ' + e.message);
+      }
+    }
+
+    loadWorkOrders();
   </script>
 </body>
 </html>

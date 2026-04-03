@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>New Quote — SHW</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#1c3a5e">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-header">
+    <a href="jobs.html" class="back-btn">‹</a>
+    <h1>New Quote</h1>
+    <div></div>
+  </div>
+
+  <div class="container">
+    <!-- SECTION 1: Customer Info -->
+    <div class="section-header">Customer Info</div>
+    <div class="card">
+      <div class="form-group" style="position:relative;">
+        <label class="form-label">Search GHL Contacts</label>
+        <input type="text" class="form-input" id="contactSearch" placeholder="Type name or phone...">
+        <div class="search-results" id="contactResults"></div>
+      </div>
+      <div id="selectedContact" style="display:none;padding:10px;background:var(--blue-gray);border-radius:8px;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span id="contactName" style="font-weight:600;"></span>
+          <button onclick="clearContact()" style="background:none;border:none;font-size:18px;cursor:pointer;">✕</button>
+        </div>
+        <div id="contactDetail" style="font-size:13px;color:var(--text-muted);"></div>
+      </div>
+      <div class="inline-group">
+        <div class="form-group">
+          <label class="form-label">First Name</label>
+          <input type="text" class="form-input" id="firstName">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name</label>
+          <input type="text" class="form-input" id="lastName">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input type="tel" class="form-input" id="phone">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Address</label>
+        <input type="text" class="form-input" id="address">
+      </div>
+      <div class="form-group">
+        <label class="form-label">PO Number</label>
+        <input type="text" class="form-input" id="poNumber" placeholder="Auto-generated">
+      </div>
+    </div>
+
+    <!-- SECTION 2: Glass Units -->
+    <div class="section-header">Glass Units</div>
+    <div id="unitsContainer"></div>
+    <button class="btn btn-outline" onclick="addUnit()">+ Add Unit</button>
+
+    <!-- SECTION 3: Pricing Summary -->
+    <div class="section-header">Pricing Summary</div>
+    <div class="summary-card" id="summaryCard">
+      <div class="line-items" id="lineItems"></div>
+      <div class="summary-row sub">
+        <span>Subtotal</span><span id="subtotal">$0.00</span>
+      </div>
+      <div class="summary-row sub">
+        <span>Tax (9.5%)</span><span id="taxAmount">$0.00</span>
+      </div>
+      <div class="summary-row total">
+        <span>Total</span><span id="totalAmount">$0.00</span>
+      </div>
+      <div class="summary-row sub">
+        <span>Deposit (50%)</span><span id="depositAmount">$0.00</span>
+      </div>
+      <div class="summary-row sub">
+        <span>Balance Due</span><span id="balanceAmount">$0.00</span>
+      </div>
+    </div>
+
+    <!-- SECTION 4: Actions -->
+    <div class="section-header">Actions</div>
+    <div class="actions-grid">
+      <button class="btn btn-primary btn-sm" onclick="saveToGHL()">💾 Save to GHL</button>
+      <button class="btn btn-outline btn-sm" onclick="previewQuote()">👁 Preview Quote</button>
+      <button class="btn btn-warning btn-sm" onclick="sendToNWGlass()">📧 Send to NW Glass</button>
+      <button class="btn btn-success btn-sm" onclick="copyQuote()">📋 Copy Quote</button>
+    </div>
+    <div style="height:20px;"></div>
+  </div>
+
+  <!-- Preview Modal -->
+  <div class="modal-overlay" id="previewModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Quote Preview</h2>
+        <button class="modal-close" onclick="closePreview()">✕</button>
+      </div>
+      <pre id="previewText" style="font-size:13px;white-space:pre-wrap;font-family:'Inter',monospace;line-height:1.5;"></pre>
+      <button class="btn btn-primary" onclick="copyQuote();closePreview();" style="margin-top:16px;">📋 Copy to Clipboard</button>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a href="jobs.html" class="nav-item">
+      <span class="nav-icon">📋</span>Jobs
+    </a>
+    <a href="new-quote.html" class="nav-item active">
+      <span class="nav-icon">📝</span>Quote
+    </a>
+    <a href="work-order.html" class="nav-item">
+      <span class="nav-icon">🔧</span>Work Orders
+    </a>
+  </nav>
+
+  <script src="pricing.js"></script>
+  <script src="ghl.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if (!checkAuth()) throw 'no auth';
+
+    let units = [];
+    let selectedContactId = null;
+
+    // Contact search
+    const contactSearch = document.getElementById('contactSearch');
+    const contactResults = document.getElementById('contactResults');
+
+    contactSearch.addEventListener('input', debounce(async function() {
+      const q = this.value.trim();
+      if (q.length < 2) { contactResults.classList.remove('show'); return; }
+      const contacts = await GHL.searchContacts(q);
+      if (!contacts.length) { contactResults.classList.remove('show'); return; }
+      contactResults.innerHTML = contacts.map(c => `
+        <div class="search-result-item" onclick="selectContact(${JSON.stringify(c).replace(/"/g, '&quot;')})">
+          <div class="name">${c.firstName || ''} ${c.lastName || ''}</div>
+          <div class="detail">${c.phone || ''} ${c.address1 || ''}</div>
+        </div>
+      `).join('');
+      contactResults.classList.add('show');
+    }, 300));
+
+    document.addEventListener('click', e => {
+      if (!contactResults.contains(e.target) && e.target !== contactSearch) {
+        contactResults.classList.remove('show');
+      }
+    });
+
+    function selectContact(c) {
+      selectedContactId = c.id;
+      document.getElementById('firstName').value = c.firstName || '';
+      document.getElementById('lastName').value = c.lastName || '';
+      document.getElementById('phone').value = c.phone || '';
+      document.getElementById('address').value = c.address1 || '';
+      document.getElementById('contactName').textContent = `${c.firstName || ''} ${c.lastName || ''}`;
+      document.getElementById('contactDetail').textContent = `${c.phone || ''} • ${c.address1 || ''}`;
+      document.getElementById('selectedContact').style.display = 'block';
+      contactResults.classList.remove('show');
+      contactSearch.value = '';
+      updatePO();
+    }
+
+    function clearContact() {
+      selectedContactId = null;
+      document.getElementById('selectedContact').style.display = 'none';
+      ['firstName','lastName','phone','address'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('poNumber').value = '';
+    }
+
+    // Auto PO
+    function updatePO() {
+      const ln = document.getElementById('lastName').value;
+      const addr = document.getElementById('address').value;
+      if (ln || addr) {
+        document.getElementById('poNumber').value = generatePO(ln, addr);
+      }
+    }
+    document.getElementById('lastName').addEventListener('input', updatePO);
+    document.getElementById('address').addEventListener('input', updatePO);
+
+    // Fraction options HTML
+    function fracOptions() {
+      return FRACTIONS.map(f => `<option value="${f.value}">${f.label}</option>`).join('');
+    }
+
+    // Glass type options
+    function glassOptions() {
+      return Object.keys(PRICING.glass).map(g => `<option value="${g}">${g}</option>`).join('');
+    }
+
+    // Frame type options
+    function frameOptions() {
+      return Object.keys(PRICING.labor).map(f => `<option value="${f}">${f}</option>`).join('');
+    }
+
+    function addUnit() {
+      const id = Date.now();
+      units.push({ id });
+      renderUnits();
+    }
+
+    function removeUnit(id) {
+      units = units.filter(u => u.id !== id);
+      renderUnits();
+      updateSummary();
+    }
+
+    function renderUnits() {
+      const container = document.getElementById('unitsContainer');
+      container.innerHTML = units.map((u, i) => `
+        <div class="unit-card" id="unit-${u.id}">
+          <div class="unit-card-header">
+            <span class="unit-number">Unit ${i + 1}</span>
+            <span class="unit-price" id="price-${u.id}">$0.00</span>
+            <button class="delete-unit" onclick="removeUnit(${u.id})">🗑</button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Location</label>
+            <input type="text" class="form-input" placeholder="e.g. Master bedroom" data-id="${u.id}" data-field="location" onchange="onUnitChange(${u.id})">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Width</label>
+            <div class="dim-row">
+              <input type="number" class="form-input" placeholder="0" min="0" data-id="${u.id}" data-field="widthWhole" oninput="onUnitChange(${u.id})">
+              <select class="form-select" data-id="${u.id}" data-field="widthFrac" onchange="onUnitChange(${u.id})">${fracOptions()}</select>
+              <span>″</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Height</label>
+            <div class="dim-row">
+              <input type="number" class="form-input" placeholder="0" min="0" data-id="${u.id}" data-field="heightWhole" oninput="onUnitChange(${u.id})">
+              <select class="form-select" data-id="${u.id}" data-field="heightFrac" onchange="onUnitChange(${u.id})">${fracOptions()}</select>
+              <span>″</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Glass Type</label>
+            <select class="form-select" data-id="${u.id}" data-field="glassType" onchange="onUnitChange(${u.id})">${glassOptions()}</select>
+          </div>
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="grids-${u.id}" data-id="${u.id}" data-field="hasGrids" onchange="toggleGrids(${u.id}); onUnitChange(${u.id})">
+            <label for="grids-${u.id}">Add Grids (+$7.40/SF)</label>
+          </div>
+
+          <div class="grid-options" id="gridOpts-${u.id}">
+            <div class="inline-group">
+              <div class="form-group">
+                <label class="form-label">Grid Color</label>
+                <select class="form-select" data-id="${u.id}" data-field="gridColor">
+                  <option>White</option><option>Bronze</option><option>Tan</option><option>Black</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Grid Pattern</label>
+                <select class="form-select" data-id="${u.id}" data-field="gridPattern">
+                  <option>2x4</option><option>2x3</option><option>3x3</option><option>3x4</option><option>4x4</option><option>Colonial</option><option>Prairie</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">BEG Measurements</label>
+              <input type="text" class="form-input" data-id="${u.id}" data-field="begMeasurements" placeholder="Between-glass measurements">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Frame Type</label>
+            <select class="form-select" data-id="${u.id}" data-field="frameType" onchange="onUnitChange(${u.id})">${frameOptions()}</select>
+          </div>
+
+          <div class="checkbox-row">
+            <input type="checkbox" id="template-${u.id}" data-id="${u.id}" data-field="needsTemplate" onchange="onUnitChange(${u.id})">
+            <label for="template-${u.id}">Template Needed (+$200)</label>
+          </div>
+
+          <div class="inline-group">
+            <div class="form-group">
+              <label class="form-label">Quantity</label>
+              <input type="number" class="form-input" value="1" min="1" data-id="${u.id}" data-field="quantity" oninput="onUnitChange(${u.id})">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Unit Notes</label>
+            <textarea class="form-textarea" data-id="${u.id}" data-field="notes" rows="2"></textarea>
+          </div>
+
+          <label class="photo-btn">
+            📷 Add Photo
+            <input type="file" accept="image/*" capture="environment" data-id="${u.id}" data-field="photo">
+          </label>
+        </div>
+      `).join('');
+
+      // Re-trigger price calc for all
+      units.forEach(u => onUnitChange(u.id));
+    }
+
+    function toggleGrids(id) {
+      const opts = document.getElementById('gridOpts-' + id);
+      const cb = document.querySelector(`[data-id="${id}"][data-field="hasGrids"]`);
+      opts.classList.toggle('show', cb.checked);
+    }
+
+    function getUnitData(id) {
+      const get = (field) => {
+        const el = document.querySelector(`[data-id="${id}"][data-field="${field}"]`);
+        if (!el) return '';
+        if (el.type === 'checkbox') return el.checked;
+        return el.value;
+      };
+      return {
+        id,
+        location: get('location'),
+        widthWhole: get('widthWhole'),
+        widthFrac: get('widthFrac'),
+        heightWhole: get('heightWhole'),
+        heightFrac: get('heightFrac'),
+        glassType: get('glassType'),
+        hasGrids: get('hasGrids'),
+        gridColor: get('gridColor'),
+        gridPattern: get('gridPattern'),
+        begMeasurements: get('begMeasurements'),
+        frameType: get('frameType'),
+        needsTemplate: get('needsTemplate'),
+        quantity: get('quantity'),
+        notes: get('notes'),
+      };
+    }
+
+    function onUnitChange(id) {
+      const data = getUnitData(id);
+      const calc = calcUnitPrice(data);
+      const priceEl = document.getElementById('price-' + id);
+      if (priceEl) priceEl.textContent = formatCurrency(calc.lineTotal);
+      updateSummary();
+    }
+
+    function getAllUnits() {
+      return units.map(u => getUnitData(u.id));
+    }
+
+    function updateSummary() {
+      const allUnits = getAllUnits();
+      const totals = calcQuoteTotal(allUnits);
+
+      // Line items
+      document.getElementById('lineItems').innerHTML = totals.lines.map((l, i) => `
+        <div class="line-item">
+          <span>${l.location || 'Unit ' + (i+1)} (${formatDimension(l.widthWhole, l.widthFrac)}×${formatDimension(l.heightWhole, l.heightFrac)}) ×${l.qty}</span>
+          <span>${formatCurrency(l.lineTotal)}</span>
+        </div>
+      `).join('');
+
+      document.getElementById('subtotal').textContent = formatCurrency(totals.subtotal);
+      document.getElementById('taxAmount').textContent = formatCurrency(totals.tax);
+      document.getElementById('totalAmount').textContent = formatCurrency(totals.total);
+      document.getElementById('depositAmount').textContent = formatCurrency(totals.deposit);
+      document.getElementById('balanceAmount').textContent = formatCurrency(totals.balance);
+    }
+
+    function getCustomerData() {
+      return {
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        phone: document.getElementById('phone').value,
+        address: document.getElementById('address').value,
+        po: document.getElementById('poNumber').value,
+        contactId: selectedContactId,
+      };
+    }
+
+    // Save to GHL
+    async function saveToGHL() {
+      const customer = getCustomerData();
+      const allUnits = getAllUnits();
+      const totals = calcQuoteTotal(allUnits);
+
+      if (!customer.firstName && !customer.lastName) {
+        showToast('Enter customer name first');
+        return;
+      }
+
+      showToast('Saving...');
+
+      try {
+        // Ensure we have a contact
+        let contactId = customer.contactId;
+        if (!contactId) {
+          const newContact = await GHL.createContact({
+            firstName: customer.firstName,
+            lastName: customer.lastName,
+            phone: customer.phone,
+            address1: customer.address,
+          });
+          if (newContact && newContact.contact) {
+            contactId = newContact.contact.id;
+          }
+        }
+
+        // Get pipeline & "Quote Sent" stage
+        const pipeline = await GHL.ensurePipeline();
+        if (!pipeline) { showToast('No pipeline found'); return; }
+        const quoteSentStage = pipeline.stages.find(s => /quote.*sent/i.test(s.name)) || pipeline.stages[1] || pipeline.stages[0];
+
+        // Save quote data to localStorage for job-detail
+        const quoteData = { customer, units: allUnits, totals };
+
+        // Create opportunity
+        const oppData = {
+          pipelineId: pipeline.id,
+          pipelineStageId: quoteSentStage.id,
+          name: `${customer.firstName} ${customer.lastName} - ${customer.po || 'Quote'}`,
+          status: 'open',
+          contactId: contactId,
+          monetaryValue: Math.round(totals.total * 100) / 100,
+        };
+
+        const opp = await GHL.createOpportunity(oppData);
+        if (opp && opp.opportunity) {
+          // Save local data
+          saveQuoteData('quote_' + opp.opportunity.id, quoteData);
+          showToast('Saved to GHL! ✓');
+          setTimeout(() => window.location.href = `job-detail.html?id=${opp.opportunity.id}`, 1500);
+        } else {
+          showToast('Error saving to GHL');
+        }
+      } catch (e) {
+        console.error(e);
+        showToast('Error: ' + e.message);
+      }
+    }
+
+    // Preview
+    function previewQuote() {
+      const customer = getCustomerData();
+      const allUnits = getAllUnits();
+      const totals = calcQuoteTotal(allUnits);
+      document.getElementById('previewText').textContent = formatQuoteText(customer, allUnits, totals);
+      document.getElementById('previewModal').classList.add('show');
+    }
+
+    function closePreview() {
+      document.getElementById('previewModal').classList.remove('show');
+    }
+
+    // Send to NW Glass
+    function sendToNWGlass() {
+      const customer = getCustomerData();
+      const allUnits = getAllUnits();
+      const totals = calcQuoteTotal(allUnits);
+      const body = formatNWGlassOrder(customer, allUnits, totals);
+      const subject = `Glass Order — ${customer.firstName} ${customer.lastName} — PO# ${customer.po}`;
+      window.location.href = `mailto:orders@nwglassmfg.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    }
+
+    // Copy quote
+    async function copyQuote() {
+      const customer = getCustomerData();
+      const allUnits = getAllUnits();
+      const totals = calcQuoteTotal(allUnits);
+      const text = formatQuoteText(customer, allUnits, totals);
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Quote copied! ✓');
+      } catch {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+        showToast('Quote copied! ✓');
+      }
+    }
+
+    // Start with one unit
+    addUnit();
+  </script>
+</body>
+</html>

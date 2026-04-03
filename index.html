@@ -2,39 +2,91 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#1c3a5e">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Seattle Home Windows</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <meta name="theme-color" content="#1c3a5e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <!-- Login Screen -->
-  <div class="login-screen" id="loginScreen">
-    <div class="login-logo">🏠 Seattle Home Windows</div>
-    <div class="login-sub">Glass Order Management</div>
-    <div class="pin-input-group">
-      <input type="tel" class="pin-digit" maxlength="1" data-pin="0" inputmode="numeric" autofocus>
-      <input type="tel" class="pin-digit" maxlength="1" data-pin="1" inputmode="numeric">
-      <input type="tel" class="pin-digit" maxlength="1" data-pin="2" inputmode="numeric">
-      <input type="tel" class="pin-digit" maxlength="1" data-pin="3" inputmode="numeric">
+  <div class="login-screen">
+    <div style="font-size:48px;margin-bottom:16px;">🪟</div>
+    <h1>Seattle Home Windows</h1>
+    <p>Enter PIN to continue</p>
+    <div class="pin-dots" id="pinDots">
+      <div class="pin-dot"></div>
+      <div class="pin-dot"></div>
+      <div class="pin-dot"></div>
+      <div class="pin-dot"></div>
     </div>
-    <div class="login-error" id="loginError"></div>
-    <button class="login-btn" id="loginBtn">Unlock</button>
+    <div class="pin-pad">
+      <button class="pin-key" onclick="pressKey('1')">1</button>
+      <button class="pin-key" onclick="pressKey('2')">2</button>
+      <button class="pin-key" onclick="pressKey('3')">3</button>
+      <button class="pin-key" onclick="pressKey('4')">4</button>
+      <button class="pin-key" onclick="pressKey('5')">5</button>
+      <button class="pin-key" onclick="pressKey('6')">6</button>
+      <button class="pin-key" onclick="pressKey('7')">7</button>
+      <button class="pin-key" onclick="pressKey('8')">8</button>
+      <button class="pin-key" onclick="pressKey('9')">9</button>
+      <button class="pin-key empty"></button>
+      <button class="pin-key" onclick="pressKey('0')">0</button>
+      <button class="pin-key" onclick="deleteKey()">⌫</button>
+    </div>
+    <div class="pin-error" id="pinError"></div>
   </div>
 
   <script>
-    // Redirect to jobs page (main landing)
-    if (localStorage.getItem('shw_auth') === 'true') {
+    // If already authed, go to jobs
+    if (sessionStorage.getItem('shw_pin') === '1234') {
       window.location.href = 'jobs.html';
     }
+
+    let pin = '';
+    const dots = document.querySelectorAll('.pin-dot');
+    const error = document.getElementById('pinError');
+
+    function updateDots() {
+      dots.forEach((d, i) => d.classList.toggle('filled', i < pin.length));
+    }
+
+    function pressKey(n) {
+      if (pin.length >= 4) return;
+      pin += n;
+      error.textContent = '';
+      updateDots();
+      if (pin.length === 4) {
+        setTimeout(() => {
+          if (pin === '1234') {
+            sessionStorage.setItem('shw_pin', '1234');
+            window.location.href = 'jobs.html';
+          } else {
+            error.textContent = 'Wrong PIN';
+            pin = '';
+            updateDots();
+            dots.forEach(d => {
+              d.style.borderColor = '#ff6b6b';
+              setTimeout(() => d.style.borderColor = '', 500);
+            });
+          }
+        }, 200);
+      }
+    }
+
+    function deleteKey() {
+      pin = pin.slice(0, -1);
+      error.textContent = '';
+      updateDots();
+    }
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(e => console.log('SW:', e));
+    }
   </script>
-  <script src="app.js"></script>
 </body>
 </html>
